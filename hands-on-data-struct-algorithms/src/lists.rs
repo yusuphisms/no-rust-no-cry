@@ -30,19 +30,16 @@ impl TransactionLog {
     }
 
     pub fn append(&mut self, value: String) {
-        match &self.tail {
+        let node = Node::new(value);
+        match self.tail.take() {
             None => {
-                let node = Node::new(value);
-                self.tail = Some(node.clone());
-                self.head = Some(node);
-                self.length += 1;
+                self.head = Some(node.clone());
             }
             Some(tail) => {
-                let new_node = Node::new(value);
-                tail.borrow_mut().next = Some(new_node.clone());
-                self.tail = Some(new_node);
-                self.length += 1;
+                tail.borrow_mut().next = Some(node.clone());
             }
         }
+        self.tail = Some(node);
+        self.length += 1;
     }
 }
