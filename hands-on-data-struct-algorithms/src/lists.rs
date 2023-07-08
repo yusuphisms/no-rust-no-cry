@@ -3,11 +3,13 @@ use std::rc::Rc;
 
 type SingleLink = Option<Rc<RefCell<Node>>>;
 
+#[derive(Debug, PartialEq)]
 struct Node {
     value: String,
     next: SingleLink,
 }
 
+#[derive(Debug)]
 struct TransactionLog {
     head: SingleLink,
     tail: SingleLink,
@@ -63,5 +65,68 @@ impl TransactionLog {
         };
         self.length -= 1;
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_appending() {
+        let mut tl = TransactionLog::new_empty();
+        assert!(tl.head.is_none());
+        assert!(tl.tail.is_none());
+        assert_eq!(tl.length, 0);
+        tl.append(String::from("Testing1"));
+        assert_eq!(tl.length, 1);
+        assert_eq!(tl.head, Some(Node::new("Testing1".to_string()))); // node without a next
+        assert_eq!(tl.tail, Some(Node::new("Testing1".to_string())));
+        tl.append(String::from("Testing2"));
+        assert_eq!(tl.length, 2);
+        assert!(tl.head.clone().unwrap().borrow().next.is_some()); // head has a next now
+        assert_eq!(
+            tl.head.clone().unwrap().borrow().next,
+            Some(Node::new(String::from("Testing2"))) // does not have a next
+        );
+        assert_eq!(tl.tail, Some(Node::new(String::from("Testing2"))));
+        tl.append(String::from("Testing3"));
+        assert_eq!(tl.length, 3);
+        assert_eq!(
+            tl.head
+                .clone()
+                .unwrap()
+                .borrow()
+                .next
+                .clone()
+                .unwrap()
+                .borrow()
+                .next,
+            Some(Node::new(String::from("Testing3"))) // head is unchanged, but the chain groweth
+        );
+        assert_eq!(tl.tail, Some(Node::new(String::from("Testing3"))));
+    }
+
+    #[test]
+    fn test_popping() {
+        let mut tl = TransactionLog::new_empty();
+        tl.append(String::from("Testing1"));
+        tl.append(String::from("Testing2"));
+        tl.append(String::from("Testing3"));
+
+        assert_eq!(tl.pop(), Some(Node::new("Testing1".to_string())));
+        assert_eq!(tl.length, 2);
+        assert!(tl.head.clone().unwrap().borrow().next.is_some());
+        assert_eq!(
+            tl.head.clone().unwrap().borrow().next,
+            Some(Node::new(String::from("Testing3"))) // Testing2 is the head now, and Testing3 is its next
+        );
+        assert_eq!(tl.tail, Some(Node::new(String::from("Testing3"))));
+        assert_eq!(tl.pop(), Some(Node::new(String::from("Testing2"))));
+        assert_eq!(tl.length, 1);
+        assert_eq!(tl.pop(), Some(Node::new(String::from("Testing3"))));
+        assert_eq!(tl.length, 0);
+        assert_eq!(tl.head, None);
+        assert!(tl.tail.is_none());
     }
 }
