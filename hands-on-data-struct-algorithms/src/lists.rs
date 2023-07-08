@@ -45,7 +45,7 @@ impl TransactionLog {
         self.length += 1;
     }
 
-    pub fn pop(&mut self) -> SingleLink {
+    pub fn pop(&mut self) -> Option<String> {
         self.head.take().map(|head| {
             if let Some(next) = head.borrow_mut().next.take() {
                 self.head = Some(next);
@@ -53,7 +53,11 @@ impl TransactionLog {
                 self.tail.take(); // why use take? I guess just to clean it up? probably equivalent to just setting it to None?
             }
             self.length -= 1;
-            head
+            Rc::try_unwrap(head)
+                .ok()
+                .expect("It should just work")
+                .into_inner() // Basically "unwrapping" the RefCell
+                .value
         })
     }
 }
@@ -104,7 +108,7 @@ mod tests {
         tl.append(String::from("Testing2"));
         tl.append(String::from("Testing3"));
 
-        assert_eq!(tl.pop(), Some(Node::new("Testing1".to_string())));
+        assert_eq!(tl.pop(), Some("Testing1".to_string()));
         assert_eq!(tl.length, 2);
         assert!(tl.head.clone().unwrap().borrow().next.is_some());
         assert_eq!(
@@ -112,9 +116,9 @@ mod tests {
             Some(Node::new(String::from("Testing3"))) // Testing2 is the head now, and Testing3 is its next
         );
         assert_eq!(tl.tail, Some(Node::new(String::from("Testing3"))));
-        assert_eq!(tl.pop(), Some(Node::new(String::from("Testing2"))));
+        assert_eq!(tl.pop(), Some(String::from("Testing2")));
         assert_eq!(tl.length, 1);
-        assert_eq!(tl.pop(), Some(Node::new(String::from("Testing3"))));
+        assert_eq!(tl.pop(), Some(String::from("Testing3")));
         assert_eq!(tl.length, 0);
         assert_eq!(tl.head, None);
         assert!(tl.tail.is_none());
