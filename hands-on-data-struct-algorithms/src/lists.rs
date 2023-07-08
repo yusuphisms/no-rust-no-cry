@@ -46,25 +46,15 @@ impl TransactionLog {
     }
 
     pub fn pop(&mut self) -> SingleLink {
-        if self.length == 0 {
-            return None;
-        }
-        let result = match self.head.take() {
-            None => None,
-            Some(node) => {
-                match node.borrow_mut().next.take() {
-                    None => {
-                        self.tail = None;
-                    }
-                    Some(next_node) => {
-                        self.head = Some(next_node);
-                    }
-                }
-                Some(node)
+        self.head.take().map(|head| {
+            if let Some(next) = head.borrow_mut().next.take() {
+                self.head = Some(next);
+            } else {
+                self.tail.take(); // why use take? I guess just to clean it up? probably equivalent to just setting it to None?
             }
-        };
-        self.length -= 1;
-        result
+            self.length -= 1;
+            head
+        })
     }
 }
 
