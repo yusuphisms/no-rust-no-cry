@@ -42,4 +42,26 @@ impl TransactionLog {
         self.tail = Some(node);
         self.length += 1;
     }
+
+    pub fn pop(&mut self) -> SingleLink {
+        if self.length == 0 {
+            return None;
+        }
+        let result = match self.head.take() {
+            None => None,
+            Some(node) => {
+                match node.borrow_mut().next.take() {
+                    None => {
+                        self.tail = None;
+                    }
+                    Some(next_node) => {
+                        self.head = Some(next_node);
+                    }
+                }
+                Some(node)
+            }
+        };
+        self.length -= 1;
+        result
+    }
 }
