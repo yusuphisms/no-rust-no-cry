@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 type Link = Option<Rc<RefCell<Node>>>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct Node {
     value: String,
     next: Link,
@@ -112,6 +112,37 @@ impl BetterTransactionLog {
     }
 }
 
+// This struct holds the state of the iterator
+pub struct ListIteratorTracker {
+    current: Link,
+}
+
+impl ListIteratorTracker {
+    fn new(start_at: Link) -> ListIteratorTracker {
+        ListIteratorTracker { current: start_at }
+    }
+}
+
+impl Iterator for ListIteratorTracker {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = &self.current;
+        let mut result = None;
+        self.current = match current {
+            Some(ref current) => {
+                let current = current.borrow();
+                result = Some(current.value.clone());
+                current.next.clone()
+            }
+            None => None,
+        };
+        // Huh. On Intellij Rust this highlights `result` with an E0308 error,
+        // but it does in fact compile and run. The same is not the case for VSCode
+        result
+    }
+}
+
 #[cfg(test)]
 mod better_transaction_log_tests {
     use super::*;
@@ -172,6 +203,12 @@ mod better_transaction_log_tests {
         assert_eq!(tl.length, 0);
         assert_eq!(tl.head, None);
         assert!(tl.tail.is_none());
+    }
+
+    #[test]
+    fn test_next() {
+        let mut tracker = ListIteratorTracker::new(Some(Node::new(String::from("testing"))));
+        assert!(tracker.next().is_some());
     }
 }
 
