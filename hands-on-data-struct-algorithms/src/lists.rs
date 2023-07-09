@@ -118,6 +118,14 @@ impl BetterTransactionLog {
                 .value
         })
     }
+
+    pub fn iter(&self) -> ListIteratorTracker {
+        ListIteratorTracker::new(self.head.clone())
+    }
+
+    pub fn iter_rev(self) -> ListIteratorTracker {
+        ListIteratorTracker::new(self.tail)
+    }
 }
 
 // This struct holds the state of the iterator
@@ -172,7 +180,7 @@ impl IntoIterator for BetterTransactionLog {
     type IntoIter = ListIteratorTracker;
 
     fn into_iter(self) -> Self::IntoIter {
-        ListIteratorTracker { current: self.head }
+        ListIteratorTracker::new(self.head)
     }
 }
 
@@ -279,14 +287,35 @@ mod better_transaction_log_tests {
         let mut tl = BetterTransactionLog::new_empty();
         tl.append(String::from("vibes"));
         tl.append(String::from("only"));
-        let tracker = ListIteratorTracker::new(tl.tail.clone());
 
-        for x in tl.into_iter() {
-            println!("{:#}", x);
+        for x in tl.clone().into_iter() {
+            // This one calls .next() over and over
+            println!("Forwards: {:#}", x);
         }
-        for x in tracker.rev() {
-            println!("{:#}", x);
+        for x in tl.clone().iter() {
+            // This one also calls .next() over and over
+            println!("Forwards: {:#}", x);
         }
+        for x in tl.clone().iter_rev().rev() {
+            // Hitting it with the uno reverse calls .next_back() over and over.
+            println!("Backwards: {:#}", x);
+        }
+        for x in tl.clone().iter().rev() {
+            // Hitting it with the uno reverse calls .next_back() over and over.
+            println!("Backwards: {:#}", x);
+            // But it only prints once because `iter()` sets the starter to Head. And head always returns None for next_back().
+        }
+
+        // For this implementation, iter does not consume the elements so it's probably more like a seek until we set state to None
+        let mut iter = tl.iter();
+        println!("Can this be used back and forth?");
+        println!("{:?}", iter.next()); // Print vibes, set state to only
+        println!("{:?}", iter.next_back()); // Print only, set state to vibes
+        println!("{:?}", iter.next()); // Print vibes, set state to only
+        println!("{:?}", iter.next_back()); // Print only, set state to vibes
+        println!("{:?}", iter.next()); // Print vibes, set state to only
+        println!("{:?}", iter.next()); // Print only, set state to None
+        println!("{:?}", iter.next_back()); // All done! We've now fully consumed the iterator because the state is set to None so there is no way home
     }
 }
 
