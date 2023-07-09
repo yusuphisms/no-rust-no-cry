@@ -1,9 +1,10 @@
 use std::cell::RefCell;
+use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 
 type Link = Option<Rc<RefCell<Node>>>;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 struct Node {
     value: String,
     next: Link,
@@ -31,6 +32,10 @@ impl Node {
             next: None,
             prev: None,
         }))
+    }
+
+    pub fn new_with(value: String, next: Link, prev: Link) -> Rc<RefCell<Node>> {
+        Rc::new(RefCell::new(Node { value, next, prev }))
     }
 }
 
@@ -90,6 +95,7 @@ impl BetterTransactionLog {
             }
             Some(tail) => {
                 tail.borrow_mut().next = Some(node.clone());
+                node.borrow_mut().prev = Some(tail);
             }
         }
         self.tail = Some(node);
@@ -99,11 +105,13 @@ impl BetterTransactionLog {
     pub fn pop(&mut self) -> Option<String> {
         self.head.take().map(|head| {
             if let Some(next) = head.borrow_mut().next.take() {
+                next.borrow_mut().prev.take();
                 self.head = Some(next);
             } else {
                 self.tail.take(); // why use take? I guess just to clean it up? probably equivalent to just setting it to None?
             }
             self.length -= 1;
+            println!("THIS IS THE BAD PLACE: {:?}", Rc::strong_count(&head)); // this log line was here because the unwrap panicked and I wanted to confirm it was because there additional unexpected references
             Rc::try_unwrap(head)
                 .expect("It should just work")
                 .into_inner() // Basically "unwrapping" the RefCell
@@ -168,6 +176,25 @@ impl IntoIterator for BetterTransactionLog {
     }
 }
 
+// For production usage, a super deep linked list will cause stack overflow for the default recursive drop implementation
+// For production, probably safer to just use the some other implementation of LinkedList
+impl Drop for TransactionLog {
+    fn drop(&mut self) {
+        while self.pop().is_some() {}
+    }
+}
+
+// Similarly here, the default derive(Debug) will cause Stack Overflow when printing out
+impl Debug for Node {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NOD")
+            .field("irreplaceable", &self.value)
+            .field("back2back", &self.prev.is_some()) // WOW! representing node without causing StackOverflow is proving to be quite the thorn!
+            .field("forwards", &self.next.is_some())
+            .finish()
+    }
+}
+
 #[cfg(test)]
 mod better_transaction_log_tests {
     use super::*;
@@ -186,25 +213,23 @@ mod better_transaction_log_tests {
         assert_eq!(tl.length, 2);
         assert!(tl.head.clone().unwrap().borrow().next.is_some()); // head has a next now
         assert_eq!(
-            tl.head.clone().unwrap().borrow().next,
-            Some(Node::new(String::from("Testing2"))) // does not have a next
+            tl.tail.clone().unwrap().borrow().value,
+            String::from("Testing2")
         );
-        assert_eq!(tl.tail, Some(Node::new(String::from("Testing2"))));
         tl.append(String::from("Testing3"));
         assert_eq!(tl.length, 3);
-        assert_eq!(
-            tl.head
-                .clone()
-                .unwrap()
-                .borrow()
-                .next
-                .clone()
-                .unwrap()
-                .borrow()
-                .next,
-            Some(Node::new(String::from("Testing3"))) // head is unchanged, but the chain groweth
-        );
-        assert_eq!(tl.tail, Some(Node::new(String::from("Testing3"))));
+        assert!(tl
+            .head
+            .clone()
+            .unwrap()
+            .borrow()
+            .next
+            .clone()
+            .unwrap()
+            .borrow()
+            .next
+            .is_some());
+        assert_eq!(tl.tail.unwrap().borrow().value, String::from("Testing3"));
     }
 
     #[test]
@@ -218,10 +243,17 @@ mod better_transaction_log_tests {
         assert_eq!(tl.length, 2);
         assert!(tl.head.clone().unwrap().borrow().next.is_some());
         assert_eq!(
-            tl.head.clone().unwrap().borrow().next,
-            Some(Node::new(String::from("Testing3"))) // Testing2 is the head now, and Testing3 is its next
+            tl.head
+                .clone()
+                .unwrap()
+                .borrow()
+                .next
+                .clone()
+                .unwrap()
+                .borrow()
+                .value,
+            String::from("Testing3") // Testing2 is the head now, and Testing3 is its next
         );
-        assert_eq!(tl.tail, Some(Node::new(String::from("Testing3"))));
         assert_eq!(tl.pop(), Some(String::from("Testing2")));
         assert_eq!(tl.length, 1);
         assert_eq!(tl.pop(), Some(String::from("Testing3")));
