@@ -143,6 +143,22 @@ impl Iterator for ListIteratorTracker {
     }
 }
 
+impl DoubleEndedIterator for ListIteratorTracker {
+    fn next_back(&mut self) -> Option<String> {
+        let current = &self.current;
+        let mut result = None;
+        self.current = match current {
+            Some(ref curr) => {
+                let curr = curr.borrow();
+                result = Some(curr.value.clone());
+                curr.prev.clone()
+            }
+            None => None,
+        };
+        result
+    }
+}
+
 #[cfg(test)]
 mod better_transaction_log_tests {
     use super::*;
@@ -209,6 +225,12 @@ mod better_transaction_log_tests {
     fn test_next() {
         let mut tracker = ListIteratorTracker::new(Some(Node::new(String::from("testing"))));
         assert!(tracker.next().is_some());
+    }
+
+    #[test]
+    fn test_next_back() {
+        let mut tracker = ListIteratorTracker::new(Some(Node::new(String::from("testing"))));
+        assert!(tracker.next_back().is_some());
     }
 }
 

@@ -1,0 +1,1 @@
+The code for all of this is [available online](https://github.com/PacktPublishing/Hands-On-Data-Structures-and-Algorithms-with-Rust). I am following along the book, so I do my own naive implementations. After, I read what the book does.
