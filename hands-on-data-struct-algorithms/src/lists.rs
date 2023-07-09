@@ -159,6 +159,15 @@ impl DoubleEndedIterator for ListIteratorTracker {
     }
 }
 
+impl IntoIterator for BetterTransactionLog {
+    type Item = String;
+    type IntoIter = ListIteratorTracker;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ListIteratorTracker { current: self.head }
+    }
+}
+
 #[cfg(test)]
 mod better_transaction_log_tests {
     use super::*;
@@ -231,6 +240,21 @@ mod better_transaction_log_tests {
     fn test_next_back() {
         let mut tracker = ListIteratorTracker::new(Some(Node::new(String::from("testing"))));
         assert!(tracker.next_back().is_some());
+    }
+
+    #[test]
+    fn test_log_iter() {
+        let mut tl = BetterTransactionLog::new_empty();
+        tl.append(String::from("vibes"));
+        tl.append(String::from("only"));
+        let tracker = ListIteratorTracker::new(tl.tail.clone());
+
+        for x in tl.into_iter() {
+            println!("{:#}", x);
+        }
+        for x in tracker.rev() {
+            println!("{:#}", x);
+        }
     }
 }
 
